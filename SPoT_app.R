@@ -58,7 +58,7 @@ tribal_bounds_bia <- st_read(here('data_processed',
 ui <- fillPage(
     # fillRow(
     leafletOutput("spot_map", height = "100%") %>% 
-        # withSpinner(color="#0dc5c1") %>%
+        # withSpinner(color="#0dc5c1") %>% # not working
         addSpinner(color = '#0dc5c1', 
                    spin = 'double-bounce' # 'fading-circle' 'rotating-plane'
                    ) %>% 
@@ -70,37 +70,6 @@ ui <- fillPage(
 
 # Define server logic -----------------------------------------------------
 server <- function(input, output) {
-    
-    ## custom legend for shapes ----
-    ## see: https://stackoverflow.com/a/52883895
-    addLegendCustom <- function(map, colors, labels, sizes, shapes, borders, weight, group_name, layer_name, title, opacity = 0.5) {
-        make_shapes <- function(colors, sizes, borders, shapes) {
-            shapes <- gsub("circle", "50%", shapes)
-            shapes <- gsub("square", "0%", shapes)
-            paste0(colors, "; width:", sizes, "px; height:", sizes, "px; border:", weight, "px solid ", borders, "; border-radius:", shapes)
-        }
-        make_labels <- function(sizes, labels) {
-            paste0("<div style='display: inline-block;height: ", 
-                   sizes, "px;margin-top: 4px;line-height: ", 
-                   sizes, "px;'>", labels, "</div>")
-        }
-        legend_colors <- make_shapes(colors, sizes, borders, shapes)
-        legend_labels <- make_labels(sizes, labels)
-        legend_group <- paste0(group_name)
-        legend_layer <- paste0(layer_name)
-        legend_title <- paste0(title)
-        
-        return(addLegend(map, 
-                         colors = legend_colors, 
-                         labels = legend_labels, 
-                         opacity = opacity, 
-                         group = legend_group, 
-                         layerId = legend_layer, 
-                         title = legend_title,
-                         position = 'bottomleft' # 'bottomright', 
-        )
-        )
-    }
     
     ## create leaflet map ----
     output$spot_map <- renderLeaflet({
@@ -115,7 +84,7 @@ server <- function(input, output) {
                     zoom = 6) 
         
         ### add basemap options ----
-        basemap_options <- c(
+        basemap_options <- c( # NOTE: use 'providers$' to see more options
             #'Stamen.TonerLite',
             'CartoDB.Positron',
             'Esri.WorldTopoMap', 
@@ -142,16 +111,12 @@ server <- function(input, output) {
         
         #### add legend for Tribal Boundaries
         leaflet_map <- leaflet_map %>% 
-            addLegendCustom(colors = c('blueviolet'), # see: https://stackoverflow.com/a/52883895
-                            labels = c('Tribal Area'), 
-                            sizes = 15, 
-                            shapes = 'square', 
-                            borders = 'blueviolet',
-                            weight = 5,
-                            group_name = 'Legend', 
-                            layer_name = 'tribal_areas_legend', 
-                            title = NULL, 
-                            opacity = 0.8)
+            addLegendSymbol(values = 'Tribal Area', 
+                            color = 'blueviolet', 
+                            shape = 'rect', 
+                            width = 15,
+                            group = 'Legend', 
+                            position = 'bottomleft')
         
         
         #### add legend for SPoT catchments ----
@@ -159,7 +124,6 @@ server <- function(input, output) {
             addLegendSymbol(values = 'SPoT Catchment', 
                             color = 'dodgerblue', 
                             shape = 'line', 
-                            # height = 20, 
                             strokeWidth = 2,
                             group = 'Legend', 
                             position = 'bottomleft')
@@ -169,18 +133,17 @@ server <- function(input, output) {
         
         #### add legend for SPoT sites shapes / borders
         leaflet_map <- leaflet_map %>% 
-            addLegendCustom(colors = c('white'), # see: https://stackoverflow.com/a/52883895
-                            labels = c('Possible SPoT Sample Location'), 
-                            sizes = 15, 
-                            shapes = 'circle', 
-                            borders = 'blue',
-                            weight = 5,
-                            group_name = 'Legend', 
-                            layer_name = 'sites_legend_2', 
-                            title = NULL, 
-                            opacity = 0.8)
+            addLegendSymbol(values = 'Possible SPoT Sample Location',
+                            shape = 'circle',
+                            fillColor = 'white',
+                            width = 20, 
+                            color = '#03F', 
+                            strokeWidth = 8, 
+                            opacity = 0.7, 
+                            group = 'Legend', 
+                            position = 'bottomleft')
         
-        #### Create color palette for toxicity scores
+        #### Create color palette for SPoT toxicity scores
         site_colors <- c('red', 'orange', 'yellow', 'green', 'black')
         spot_sites_pal <- colorFactor(
             palette = site_colors, 
@@ -188,11 +151,9 @@ server <- function(input, output) {
             levels = c(1, 2, 3, 4, 5)
         )
         
-        #### add legend for colors
+        #### add legend for SPoT colors
         leaflet_map <- leaflet_map %>% 
             addLegend(position = 'bottomleft', # 'bottomright', 
-                      # pal = spot_sites_pal, 
-                      # values = c(1, 2, 3, 4, 5),
                       colors = site_colors,
                       labels = c('0 - 80', '80 - 90', '90 - 95', '95 - 100+', 'DPR Locations'),
                       opacity = 1, 
@@ -201,7 +162,7 @@ server <- function(input, output) {
                       title = paste0('SPoT Sites Avg Tox Response'))
         
         
-        #### add sites
+        #### add SPoT sites
         leaflet_map <- leaflet_map %>%
             addCircleMarkers(data = spot_sites %>% 
                                  st_transform(crs = geographic_crs),
@@ -221,7 +182,6 @@ server <- function(input, output) {
                              fill = TRUE, 
                              fillOpacity = 1, 
                              fillColor = ~ spot_sites_pal(location_color),
-                             # fillColor = 'black',
                              # highlightOptions = highlightOptions(color = "red", weight = 2, bringToFront = TRUE),
                              popup = ~paste0('<b>', '<u>', 'SPoT Site', '</u>', '</b>','<br/>',
                                              '<b>', 'Station Name: ', '</b>', station_name, '<br/>',
@@ -255,6 +215,7 @@ server <- function(input, output) {
                          group = 'SPoT Catchments',
                          label = ~glue('SPoT Catchment ({station_nam})')
             )
+        
         
         ### add CalEnviroScreen ----
         
