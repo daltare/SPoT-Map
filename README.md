@@ -1,4 +1,4 @@
-Map for the SPoT program, available at: \<<https://cawaterdatadive.shinyapps.io/spot_map/>\>
+Map for the SPoT program, available at: <https://cawaterdatadive.shinyapps.io/spot_map/>
 
 The map shows:
 
