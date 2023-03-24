@@ -18,6 +18,11 @@ library(leaflet)
 library(glue)
 library(janitor)
 library(here)
+library(FedData)
+library(htmlwidgets)
+
+## conflicts
+conflicts_prefer(dplyr::filter)
 
 
 
@@ -35,13 +40,16 @@ geographic_crs <- 4269 # see: https://epsg.io/4269
 
 
 # load data ----------------------------------------------------------------
+## SPoT catchments ----
 spot_catchments <- st_read(here('data_processed', 
                                 'spot_catchments_2019-03-04.gpkg'))
 
+## SPoT sites ----
 spot_sites <- st_read(here('data_processed', 
                            'spot_sites_2022.gpkg')) %>% 
     mutate(location_color = as.factor(location_color))
 
+## CalEnviroScreen 4 ----
 ces_4 <- st_read(here('data_processed', 
                       'calenviroscreen_4-0.gpkg')) %>% 
     mutate(c_iscore = case_when(c_iscore == -999 ~ NA,
@@ -49,9 +57,20 @@ ces_4 <- st_read(here('data_processed',
            c_iscore_p = case_when(c_iscore_p == -999 ~ NA,
                                   TRUE ~ c_iscore_p))
 
+## tribal boundaries ----
 tribal_bounds_bia <- st_read(here('data_processed', 
                                   'ca_tribal_boundaries_bia.gpkg'))
 
+## NLCD ----
+nlcd_legend <- nlcd_colors() %>% 
+    filter(!str_detect(string = Description, pattern = 'Alaska only')) %>% 
+    select(Class, Color)
+
+
+
+# web services ------------------------------------------------------------
+## NLCD (see: https://www.mrlc.gov/data-services-page AND more generally: https://www.mrlc.gov/data/nlcd-2019-land-cover-conus)
+wms_nlcd <- 'https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2019_Land_Cover_L48/wms?service=WMS&'
 
 
 # define UI ---------------------------------------------------------------
@@ -61,7 +80,7 @@ ui <- fillPage(
         # withSpinner(color="#0dc5c1") %>% # not working
         addSpinner(color = '#0dc5c1', 
                    spin = 'double-bounce' # 'fading-circle' 'rotating-plane'
-                   ) %>% 
+        ) %>% 
         {.}
     # )
 )
@@ -102,6 +121,7 @@ server <- function(input, output) {
         
         ### add panes ----
         leaflet_map <- leaflet_map %>% 
+            addMapPane('nlcd_pane', zIndex = 490) %>% 
             addMapPane('ces_4_pane', zIndex = 500) %>% 
             addMapPane('tribal_boundaries_pane', zIndex = 510) %>% 
             addMapPane('spot_catchments_pane', zIndex = 520) %>% 
@@ -111,12 +131,12 @@ server <- function(input, output) {
         
         #### add legend for Tribal Boundaries
         leaflet_map <- leaflet_map %>% 
-            addLegendSymbol(values = 'Tribal Area', 
-                            color = 'blueviolet', 
-                            shape = 'rect', 
-                            width = 15,
-                            group = 'Legend', 
-                            position = 'bottomleft')
+            addLegend(position = 'bottomright', 
+                      colors = 'blueviolet',
+                      labels = 'Tribal Area',
+                      opacity = 1, 
+                      layerId = 'tribal_areas_legend', 
+                      group = 'Tribal Areas')
         
         
         #### add legend for SPoT catchments ----
@@ -125,8 +145,8 @@ server <- function(input, output) {
                             color = 'dodgerblue', 
                             shape = 'line', 
                             strokeWidth = 2,
-                            group = 'Legend', 
-                            position = 'bottomleft')
+                            group = 'SPoT Catchments', 
+                            position = 'bottomright')
         
         
         ### add SPoT sites ---- 
@@ -140,8 +160,8 @@ server <- function(input, output) {
                             color = '#03F', 
                             strokeWidth = 8, 
                             opacity = 0.7, 
-                            group = 'Legend', 
-                            position = 'bottomleft')
+                            group = 'SPoT Sites', 
+                            position = 'bottomright')
         
         #### Create color palette for SPoT toxicity scores
         site_colors <- c('red', 'orange', 'yellow', 'green', 'black')
@@ -153,12 +173,12 @@ server <- function(input, output) {
         
         #### add legend for SPoT colors
         leaflet_map <- leaflet_map %>% 
-            addLegend(position = 'bottomleft', # 'bottomright', 
+            addLegend(position = 'bottomright', # 'bottomright', 
                       colors = site_colors,
                       labels = c('0 - 80', '80 - 90', '90 - 95', '95 - 100+', 'DPR Locations'),
                       opacity = 1, 
                       layerId = 'sites_legend', 
-                      group = 'Legend', 
+                      group = 'SPoT Sites', 
                       title = paste0('SPoT Sites Avg Tox Response'))
         
         
@@ -175,7 +195,7 @@ server <- function(input, output) {
                              color = ~ifelse(possible_sample_loc == 'yes',
                                              '#03F',
                                              'black'),
-                                             # color = "#03F", # 'black',
+                             # color = "#03F", # 'black',
                              opacity = ~ifelse(possible_sample_loc == 'yes',
                                                0.8, # 1,
                                                0.6),
@@ -258,12 +278,11 @@ server <- function(input, output) {
                       opacity = 1,
                       layerId = 'ces_legend',
                       bins = 4,
-                      group = 'Legend',
-                      title = paste0('CES 4.0 Percentile')
+                      group = 'CalEnviroScreen 4.0',
+                      title = 'CalEnviroScreen 4.0 Percentile'
             )
         
         #### add tribal boundaries ----
-        tribal_bounds_bia
         leaflet_map <- leaflet_map %>%
             addPolygons(data = tribal_bounds_bia %>%
                             st_transform(crs = geographic_crs), # ces3_poly %>% filter(California_County == cities_counties[[input$city_selected_1]]),
@@ -283,6 +302,28 @@ server <- function(input, output) {
                         label = ~glue('Tribal Area ({larname})')
             )
         
+        # #### add NLCD (land cover) ----
+        # leaflet_map <- leaflet_map %>%
+        #     addWMSTiles(
+        #         wms_nlcd,
+        #         layers = 'NLCD_2019_Land_Cover_L48',
+        #         options = c(WMSTileOptions(format = 'image/png', transparent = TRUE),
+        #                     pathOptions(pane = 'nlcd_pane')),
+        #         attribution = 'National Land Cover Database 2019',
+        #         group = 'Land Cover') %>% 
+        #     hideGroup('Land Cover')
+        # 
+        # #### add NLCD legend ----
+        # leaflet_map <- leaflet_map %>%
+        #     addLegend(position = 'bottomleft', # 'bottomright',
+        #               colors = nlcd_legend$Color,
+        #               labels = nlcd_legend$Class,
+        #               opacity = 1,
+        #               layerId = 'nlcd_legend',
+        #               group = 'Land Cover',
+        #               title = 'Land Cover Classes (NLCD)') %>%
+        #     hideGroup('Land Cover')
+        
         
         ### add layer controls ----
         leaflet_map <- leaflet_map %>%
@@ -291,11 +332,27 @@ server <- function(input, output) {
                                  'CalEnviroScreen 4.0', 
                                  'SPoT Sites',
                                  'SPoT Catchments', 
-                                 'Tribal Areas',
-                                 'Legend'
+                                 'Tribal Areas'#,
+                                 #'Land Cover'#,
+                                 #'Legend'
                              ),
                              options = layersControlOptions(collapsed = TRUE,
                                                             autoZIndex = TRUE))
+        
+        ## Try to make Land Use legend hidden by default (Need to add className arguments)
+        ## See: https://github.com/rstudio/leaflet/issues/477
+        # leaflet_map <- leaflet_map %>% 
+        #     htmlwidgets::onRender(
+        #         "function(el, x) {
+        # var updateLegend = function () {
+        # var selectedGroup = document.querySelectorAll('input:checked')[0].nextSibling.innerText.substr(1).replace(/[^a-zA-Z]+/g, '');
+        # document.querySelectorAll('.legend').forEach( a => a.hidden=true );
+        # document.querySelectorAll('.legend').forEach( l => { if (l.classList.contains(selectedGroup)) l.hidden=false; } );
+        # };
+        # updateLegend();
+        # this.on('baselayerchange', el => updateLegend());
+        # }"
+        #     )
     })
     
 }
