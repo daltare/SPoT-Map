@@ -11,7 +11,6 @@ library(shinyjs)
 library(shinycssloaders)
 library(shinyWidgets)
 library(tidyverse)
-library(conflicted)
 library(sf)
 library(leaflegend)
 library(leaflet)
@@ -19,9 +18,9 @@ library(glue)
 library(janitor)
 library(here)
 library(FedData)
-# library(htmlwidgets)
 
-## conflicts
+## conflicts ----
+library(conflicted)
 conflicts_prefer(dplyr::filter)
 
 
@@ -319,7 +318,7 @@ server <- function(input, output) {
                 options = c(WMSTileOptions(format = 'image/png', transparent = TRUE),
                             pathOptions(pane = 'nlcd_pane')),
                 attribution = 'National Land Cover Database 2019',
-                group = 'Land Cover (NLCD)') %>%
+                group = 'Land Cover (2019 NLCD)') %>%
             ## add the CA boundary on top of the NLCD layer
             addPolylines(data = ca_boundary %>% 
                              st_transform(crs = geographic_crs), # have to convert to geographic coordinate system for leaflet)
@@ -332,9 +331,9 @@ server <- function(input, output) {
                          # highlightOptions = highlightOptions(color = "darkblue", 
                          #                                     weight = 2, 
                          #                                     bringToFront = TRUE),
-                         group = 'Land Cover (NLCD)',
+                         group = 'Land Cover (2019 NLCD)',
                          label = 'CA Boundary') %>% 
-            hideGroup('Land Cover (NLCD)')
+            hideGroup('Land Cover (2019 NLCD)')
         
         
         ### add layer controls ----
@@ -345,7 +344,7 @@ server <- function(input, output) {
                                  'SPoT Sites',
                                  'SPoT Catchments', 
                                  'Tribal Areas',
-                                 'Land Cover (NLCD)'
+                                 'Land Cover (2019 NLCD)'
                              ),
                              options = layersControlOptions(collapsed = TRUE,
                                                             autoZIndex = TRUE))
@@ -355,14 +354,14 @@ server <- function(input, output) {
     ### (have to do this with leafletProxy so that the legend doesn't show up 
     ### when the map is first rendered)
     observeEvent(input$spot_map_render_groups,{
-        if ('Land Cover (NLCD)' %in% input$spot_map_render_groups){
+        if ('Land Cover (2019 NLCD)' %in% input$spot_map_render_groups){
             leafletProxy('spot_map_render') %>%
                 addLegend(position = 'bottomleft', # 'bottomright',
                           colors = nlcd_legend$Color,
                           labels = nlcd_legend$Class,
                           opacity = 1,
                           layerId = 'nlcd_legend',
-                          group = 'Land Cover (NLCD)',
+                          group = 'Land Cover (2019 NLCD)',
                           title = 'Land Cover Classes (NLCD)')
         }
         
