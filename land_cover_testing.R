@@ -1,4 +1,4 @@
-
+# testing use of data from the USGS National Land Cover Database (NLCD)
 
 # packages ----------------------------------------------------------------
 library(FedData)
@@ -16,13 +16,14 @@ library(raster)
 library(leaflet)
 
 
-# conflicts ---------------------------------------------------------------
+# conflicts ----
+library(conflicted)
 conflicts_prefer(dplyr::filter)
 
 
 
 
-# NLCD Data ---------------------------------------------------------------
+# Download NLCD Data --------------------------------------------------------
 
 ca_counties <- counties(state = 'CA', 
                         year = 2019)
