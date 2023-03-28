@@ -18,6 +18,11 @@ library(leaflet)
 library(glue)
 library(janitor)
 library(here)
+library(FedData)
+# library(htmlwidgets)
+
+## conflicts
+conflicts_prefer(dplyr::filter)
 
 
 
@@ -35,13 +40,16 @@ geographic_crs <- 4269 # see: https://epsg.io/4269
 
 
 # load data ----------------------------------------------------------------
+## SPoT catchments ----
 spot_catchments <- st_read(here('data_processed', 
                                 'spot_catchments_2019-03-04.gpkg'))
 
+## SPoT sites ----
 spot_sites <- st_read(here('data_processed', 
                            'spot_sites_2022.gpkg')) %>% 
     mutate(location_color = as.factor(location_color))
 
+## CalEnviroScreen 4 ----
 ces_4 <- st_read(here('data_processed', 
                       'calenviroscreen_4-0.gpkg')) %>% 
     mutate(c_iscore = case_when(c_iscore == -999 ~ NA,
@@ -49,19 +57,34 @@ ces_4 <- st_read(here('data_processed',
            c_iscore_p = case_when(c_iscore_p == -999 ~ NA,
                                   TRUE ~ c_iscore_p))
 
+## tribal boundaries ----
 tribal_bounds_bia <- st_read(here('data_processed', 
                                   'ca_tribal_boundaries_bia.gpkg'))
 
+## CA boundary ----
+ca_boundary <- st_read(here('data_processed', 
+                            'ca_boundary.gpkg'))
+
+## NLCD ----
+nlcd_legend <- nlcd_colors() %>% 
+    filter(!str_detect(string = Description, pattern = 'Alaska only')) %>% 
+    select(Class, Color)
+
+
+
+# web services ------------------------------------------------------------
+## NLCD (see: https://www.mrlc.gov/data-services-page AND more generally: https://www.mrlc.gov/data/nlcd-2019-land-cover-conus)
+wms_nlcd <- 'https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2019_Land_Cover_L48/wms?service=WMS&'
 
 
 # define UI ---------------------------------------------------------------
 ui <- fillPage(
     # fillRow(
-    leafletOutput("spot_map", height = "100%") %>% 
+    leafletOutput('spot_map_render', height = "100%") %>% 
         # withSpinner(color="#0dc5c1") %>% # not working
         addSpinner(color = '#0dc5c1', 
                    spin = 'double-bounce' # 'fading-circle' 'rotating-plane'
-                   ) %>% 
+        ) %>% 
         {.}
     # )
 )
@@ -72,13 +95,13 @@ ui <- fillPage(
 server <- function(input, output) {
     
     ## create leaflet map ----
-    output$spot_map <- renderLeaflet({
+    output$spot_map_render <- renderLeaflet({
         
         ### create empty map ----
-        leaflet_map <- leaflet()
+        spot_map <- leaflet()
         
         ### set initial zoom ----
-        leaflet_map <- leaflet_map %>% 
+        spot_map <- spot_map %>% 
             setView(lng = -119.5, # CA centroid: -119.5266
                     lat = 37.5, # CA centroid: 37.15246
                     zoom = 6) 
@@ -94,14 +117,18 @@ server <- function(input, output) {
         ) 
         
         for (provider in basemap_options) {
-            leaflet_map <- leaflet_map %>% 
+            spot_map <- spot_map %>% 
                 addProviderTiles(provider, 
                                  group = provider, 
                                  options = providerTileOptions(noWrap = TRUE))
         }
         
         ### add panes ----
-        leaflet_map <- leaflet_map %>% 
+        #### (sets the order in which layers are drawn/stacked -- higher 
+        #### numbers appear on top)
+        spot_map <- spot_map %>% 
+            addMapPane('nlcd_pane', zIndex = 480) %>% 
+            addMapPane('nlcd_ca_pane', zIndex = 490) %>% 
             addMapPane('ces_4_pane', zIndex = 500) %>% 
             addMapPane('tribal_boundaries_pane', zIndex = 510) %>% 
             addMapPane('spot_catchments_pane', zIndex = 520) %>% 
@@ -110,29 +137,29 @@ server <- function(input, output) {
         
         
         #### add legend for Tribal Boundaries
-        leaflet_map <- leaflet_map %>% 
-            addLegendSymbol(values = 'Tribal Area', 
-                            color = 'blueviolet', 
-                            shape = 'rect', 
-                            width = 15,
-                            group = 'Legend', 
-                            position = 'bottomleft')
+        spot_map <- spot_map %>% 
+            addLegend(position = 'bottomright', 
+                      colors = 'blueviolet',
+                      labels = 'Tribal Area',
+                      opacity = 1, 
+                      layerId = 'tribal_areas_legend', 
+                      group = 'Tribal Areas')
         
         
         #### add legend for SPoT catchments ----
-        leaflet_map <- leaflet_map %>% 
+        spot_map <- spot_map %>% 
             addLegendSymbol(values = 'SPoT Catchment', 
                             color = 'dodgerblue', 
                             shape = 'line', 
                             strokeWidth = 2,
-                            group = 'Legend', 
-                            position = 'bottomleft')
+                            group = 'SPoT Catchments', 
+                            position = 'bottomright')
         
         
         ### add SPoT sites ---- 
         
         #### add legend for SPoT sites shapes / borders
-        leaflet_map <- leaflet_map %>% 
+        spot_map <- spot_map %>% 
             addLegendSymbol(values = 'Possible SPoT Sample Location',
                             shape = 'circle',
                             fillColor = 'white',
@@ -140,8 +167,8 @@ server <- function(input, output) {
                             color = '#03F', 
                             strokeWidth = 8, 
                             opacity = 0.7, 
-                            group = 'Legend', 
-                            position = 'bottomleft')
+                            group = 'SPoT Sites', 
+                            position = 'bottomright')
         
         #### Create color palette for SPoT toxicity scores
         site_colors <- c('red', 'orange', 'yellow', 'green', 'black')
@@ -152,18 +179,18 @@ server <- function(input, output) {
         )
         
         #### add legend for SPoT colors
-        leaflet_map <- leaflet_map %>% 
-            addLegend(position = 'bottomleft', # 'bottomright', 
+        spot_map <- spot_map %>% 
+            addLegend(position = 'bottomright', # 'bottomright', 
                       colors = site_colors,
                       labels = c('0 - 80', '80 - 90', '90 - 95', '95 - 100+', 'DPR Locations'),
                       opacity = 1, 
                       layerId = 'sites_legend', 
-                      group = 'Legend', 
+                      group = 'SPoT Sites', 
                       title = paste0('SPoT Sites Avg Tox Response'))
         
         
         #### add SPoT sites
-        leaflet_map <- leaflet_map %>%
+        spot_map <- spot_map %>%
             addCircleMarkers(data = spot_sites %>% 
                                  st_transform(crs = geographic_crs),
                              options = pathOptions(pane = 'spot_sites_pane'),
@@ -175,7 +202,7 @@ server <- function(input, output) {
                              color = ~ifelse(possible_sample_loc == 'yes',
                                              '#03F',
                                              'black'),
-                                             # color = "#03F", # 'black',
+                             # color = "#03F", # 'black',
                              opacity = ~ifelse(possible_sample_loc == 'yes',
                                                0.8, # 1,
                                                0.6),
@@ -194,7 +221,7 @@ server <- function(input, output) {
         
         
         ### add SPoT catchments ----   
-        leaflet_map <- leaflet_map %>%
+        spot_map <- spot_map %>%
             addPolylines(data = spot_catchments %>% 
                              st_transform(crs = geographic_crs), # have to convert to geographic coordinate system for leaflet)
                          options = pathOptions(pane = 'spot_catchments_pane'),
@@ -226,7 +253,7 @@ server <- function(input, output) {
             reverse = TRUE)
         
         #### add CES polygons ----
-        leaflet_map <- leaflet_map %>%
+        spot_map <- spot_map %>%
             addPolygons(data = ces_4 %>%
                             st_transform(crs = geographic_crs), # ces3_poly %>% filter(California_County == cities_counties[[input$city_selected_1]]),
                         options = pathOptions(pane = "ces_4_pane"),
@@ -251,20 +278,19 @@ server <- function(input, output) {
             )
         
         #### add CES legend ----
-        leaflet_map <- leaflet_map %>%
+        spot_map <- spot_map %>%
             addLegend(position = 'bottomleft', # 'bottomright',
                       pal = ces_pal,
                       values = ces_4$c_iscore_p,
                       opacity = 1,
                       layerId = 'ces_legend',
                       bins = 4,
-                      group = 'Legend',
-                      title = paste0('CES 4.0 Percentile')
+                      group = 'CalEnviroScreen 4.0',
+                      title = 'CalEnviroScreen 4.0 Percentile'
             )
         
         #### add tribal boundaries ----
-        tribal_bounds_bia
-        leaflet_map <- leaflet_map %>%
+        spot_map <- spot_map %>%
             addPolygons(data = tribal_bounds_bia %>%
                             st_transform(crs = geographic_crs), # ces3_poly %>% filter(California_County == cities_counties[[input$city_selected_1]]),
                         options = pathOptions(pane = "tribal_boundaries_pane"),
@@ -283,20 +309,68 @@ server <- function(input, output) {
                         label = ~glue('Tribal Area ({larname})')
             )
         
+        #### add NLCD (land cover) ----
+        #### (NOTE: the legend is added below via leafletProxy, so that the legend
+        #### doesn't show up when the map is first rendered)
+        spot_map <- spot_map %>%
+            addWMSTiles(
+                wms_nlcd,
+                layers = 'NLCD_2019_Land_Cover_L48',
+                options = c(WMSTileOptions(format = 'image/png', transparent = TRUE),
+                            pathOptions(pane = 'nlcd_pane')),
+                attribution = 'National Land Cover Database 2019',
+                group = 'Land Cover (NLCD)') %>%
+            ## add the CA boundary on top of the NLCD layer
+            addPolylines(data = ca_boundary %>% 
+                             st_transform(crs = geographic_crs), # have to convert to geographic coordinate system for leaflet)
+                         options = pathOptions(pane = 'nlcd_ca_pane'),
+                         color = 'black', 
+                         weight = 1.0,
+                         smoothFactor = 1.0,
+                         opacity = 0.7,
+                         # fill = FALSE,
+                         # highlightOptions = highlightOptions(color = "darkblue", 
+                         #                                     weight = 2, 
+                         #                                     bringToFront = TRUE),
+                         group = 'Land Cover (NLCD)',
+                         label = 'CA Boundary') %>% 
+            hideGroup('Land Cover (NLCD)')
+        
         
         ### add layer controls ----
-        leaflet_map <- leaflet_map %>%
+        spot_map <- spot_map %>%
             addLayersControl(baseGroups = basemap_options,
                              overlayGroups = c(
                                  'CalEnviroScreen 4.0', 
                                  'SPoT Sites',
                                  'SPoT Catchments', 
                                  'Tribal Areas',
-                                 'Legend'
+                                 'Land Cover (NLCD)'
                              ),
                              options = layersControlOptions(collapsed = TRUE,
                                                             autoZIndex = TRUE))
     })
+    
+    ## add NLCD legend ----
+    ### (have to do this with leafletProxy so that the legend doesn't show up 
+    ### when the map is first rendered)
+    observeEvent(input$spot_map_render_groups,{
+        if ('Land Cover (NLCD)' %in% input$spot_map_render_groups){
+            leafletProxy('spot_map_render') %>%
+                addLegend(position = 'bottomleft', # 'bottomright',
+                          colors = nlcd_legend$Color,
+                          labels = nlcd_legend$Class,
+                          opacity = 1,
+                          layerId = 'nlcd_legend',
+                          group = 'Land Cover (NLCD)',
+                          title = 'Land Cover Classes (NLCD)')
+        }
+        
+    })
+    
+    # observe({
+    #     print(input$spot_map_render_groups)
+    # })
     
 }
 
