@@ -201,7 +201,6 @@ server <- function(input, output) {
                              color = ~ifelse(possible_sample_loc == 'yes',
                                              '#03F',
                                              'black'),
-                             # color = "#03F", # 'black',
                              opacity = ~ifelse(possible_sample_loc == 'yes',
                                                0.8, # 1,
                                                0.6),
@@ -261,11 +260,6 @@ server <- function(input, output) {
                         smoothFactor = 1.0,
                         opacity = 0.8,
                         fillOpacity = 0.8,
-                        # fillColor = ~colorNumeric(
-                        #     palette = 'RdYlGn', 
-                        #     domain = c_iscore_p, 
-                        #     reverse = TRUE)(c_iscore_p),
-                        # fillColor = ~colorNumeric('YlOrBr', c_iscore_p)(c_iscore_p), # view RColorBrewer palettes with: RColorBrewer::display.brewer.all()
                         fillColor = ~ces_pal(c_iscore_p), 
                         highlightOptions = highlightOptions(color = "white", weight = 2), # fill = TRUE, fillColor = "white"),#,bringToFront = TRUE
                         popup = ~paste0('<b>', '<u>','CalEnviroScreen 4.0 (CES)', '</u>','</b>','<br/>',
@@ -327,10 +321,6 @@ server <- function(input, output) {
                          weight = 1.0,
                          smoothFactor = 1.0,
                          opacity = 0.7,
-                         # fill = FALSE,
-                         # highlightOptions = highlightOptions(color = "darkblue", 
-                         #                                     weight = 2, 
-                         #                                     bringToFront = TRUE),
                          group = 'Land Cover (2019 NLCD)',
                          label = 'CA Boundary') %>% 
             hideGroup('Land Cover (2019 NLCD)')
@@ -353,7 +343,8 @@ server <- function(input, output) {
     ## add NLCD legend ----
     ### (have to do this with leafletProxy so that the legend doesn't show up 
     ### when the map is first rendered)
-    observeEvent(input$spot_map_render_groups,{
+    observe({
+    # observeEvent(input$spot_map_render_groups,{
         if ('Land Cover (2019 NLCD)' %in% input$spot_map_render_groups){
             leafletProxy('spot_map_render') %>%
                 addLegend(position = 'bottomleft', # 'bottomright',
@@ -366,10 +357,6 @@ server <- function(input, output) {
         }
         
     })
-    
-    # observe({
-    #     print(input$spot_map_render_groups)
-    # })
     
 }
 
