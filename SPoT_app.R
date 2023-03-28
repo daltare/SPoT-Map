@@ -135,7 +135,7 @@ server <- function(input, output) {
             {.}
         
         
-        #### add legend for Tribal Boundaries
+        ### add legend for Tribal Boundaries ----
         spot_map <- spot_map %>% 
             addLegend(position = 'bottomright', 
                       colors = 'blueviolet',
@@ -145,7 +145,7 @@ server <- function(input, output) {
                       group = 'Tribal Areas')
         
         
-        #### add legend for SPoT catchments ----
+        ### add legend for SPoT catchments ----
         spot_map <- spot_map %>% 
             addLegendSymbol(values = 'SPoT Catchment', 
                             color = 'dodgerblue', 
@@ -242,15 +242,15 @@ server <- function(input, output) {
             )
         
         
-        ### add CalEnviroScreen ----
+        ### add CalEnviroScreen (CES) ----
         
-        #### Create color palette for toxicity scores ----
+        #### Create color palette for CES scores
         ces_pal <- colorNumeric(
             palette = 'RdYlGn', 
             domain = ces_4$c_iscore_p, 
             reverse = TRUE)
         
-        #### add CES polygons ----
+        #### add CES polygons
         spot_map <- spot_map %>%
             addPolygons(data = ces_4 %>%
                             st_transform(crs = geographic_crs), # ces3_poly %>% filter(California_County == cities_counties[[input$city_selected_1]]),
@@ -270,7 +270,7 @@ server <- function(input, output) {
                         # label = ~glue('CES 4.0 (Percentile: {round(c_iscore_p, 2)})')
             )
         
-        #### add CES legend ----
+        #### add CES legend
         spot_map <- spot_map %>%
             addLegend(position = 'bottomleft', # 'bottomright',
                       pal = ces_pal,
@@ -282,7 +282,7 @@ server <- function(input, output) {
                       title = 'CalEnviroScreen 4.0 Percentile'
             )
         
-        #### add tribal boundaries ----
+        ### add tribal boundaries ----
         spot_map <- spot_map %>%
             addPolygons(data = tribal_bounds_bia %>%
                             st_transform(crs = geographic_crs), # ces3_poly %>% filter(California_County == cities_counties[[input$city_selected_1]]),
@@ -302,7 +302,7 @@ server <- function(input, output) {
                         label = ~glue('Tribal Area ({larname})')
             )
         
-        #### add NLCD (land cover) ----
+        ### add NLCD (land cover) ----
         #### (NOTE: the legend is added below via leafletProxy, so that the legend
         #### doesn't show up when the map is first rendered)
         spot_map <- spot_map %>%
