@@ -9,6 +9,7 @@ library(janitor)
 library(httr)
 library(esri2sf) # install using remotes::install_github("yonghah/esri2sf"); for more info see: https://github.com/yonghah/esri2sf 
 library(tigris)
+library(tools)
 
 ## conflicts ----
 library(conflicted)
@@ -84,14 +85,20 @@ url_ces4_shp <- 'https://oehha.ca.gov/media/downloads/calenviroscreen/document/c
 
 ## download zip  file
 GET(url = url_ces4_shp, 
-    write_disk(file.path(temp_dir, 'calenviroscreen40shpf2021shp.zip'),
+    write_disk(file.path(temp_dir, 
+                         basename(url_ces4_shp)),
                overwrite = TRUE))
-unzip(zipfile = file.path(temp_dir, 'calenviroscreen40shpf2021shp.zip'), 
-      exdir = file.path(temp_dir, 'calenviroscreen40shpf2021shp'))
+unzip(zipfile = file.path(temp_dir, 
+                          basename(url_ces4_shp)), 
+      exdir = file.path(temp_dir, 
+                        basename(url_ces4_shp) %>% 
+                            file_path_sans_ext()))
 # exdir = tempdir())
 # unlink('calenviroscreen40shpf2021shp.zip')
 
-sf_ces4 <- st_read(file.path(temp_dir, 'calenviroscreen40shpf2021shp')) %>% 
+sf_ces4 <- st_read(file.path(temp_dir, 
+                             basename(url_ces4_shp) %>% 
+                                 file_path_sans_ext())) %>% 
     arrange(Tract) %>% 
     clean_names()
 # st_crs(sf_ces4)
@@ -99,7 +106,8 @@ names(sf_ces4)
 
 ## write CES data ----
 st_write(sf_ces4, 
-         here('data_processed', 'calenviroscreen_4-0.gpkg'), 
+         here('data_processed', 
+              'calenviroscreen_4-0.gpkg'), 
          append = FALSE)
 
 
