@@ -179,7 +179,7 @@ server <- function(input, output) {
         
         #### add legend for SPoT colors
         spot_map <- spot_map %>% 
-            addLegend(position = 'bottomright', # 'bottomright', 
+            addLegend(position = 'bottomright', 
                       colors = site_colors,
                       labels = c('0 - 80', '80 - 90', '90 - 95', '95 - 100+', 'DPR Locations'),
                       opacity = 1, 
@@ -253,7 +253,7 @@ server <- function(input, output) {
         #### add CES polygons
         spot_map <- spot_map %>%
             addPolygons(data = ces_4 %>%
-                            st_transform(crs = geographic_crs), # ces3_poly %>% filter(California_County == cities_counties[[input$city_selected_1]]),
+                            st_transform(crs = geographic_crs), 
                         options = pathOptions(pane = "ces_4_pane"),
                         color = 'darkgrey', 
                         weight = 0.5,
@@ -261,7 +261,7 @@ server <- function(input, output) {
                         opacity = 0.8,
                         fillOpacity = 0.8,
                         fillColor = ~ces_pal(c_iscore_p), 
-                        highlightOptions = highlightOptions(color = "white", weight = 2), # fill = TRUE, fillColor = "white"),#,bringToFront = TRUE
+                        highlightOptions = highlightOptions(color = "white", weight = 2), 
                         popup = ~paste0('<b>', '<u>','CalEnviroScreen 4.0 (CES)', '</u>','</b>','<br/>',
                                         '<b>', 'Census Tract: ', '</b>',  tract, '<br/>',
                                         '<b>', 'CES Score: ', '</b>', round(c_iscore, 2), '<br/>',
@@ -272,7 +272,7 @@ server <- function(input, output) {
         
         #### add CES legend
         spot_map <- spot_map %>%
-            addLegend(position = 'bottomleft', # 'bottomright',
+            addLegend(position = 'bottomleft',
                       pal = ces_pal,
                       values = ces_4$c_iscore_p,
                       opacity = 1,
@@ -285,7 +285,7 @@ server <- function(input, output) {
         ### add tribal boundaries ----
         spot_map <- spot_map %>%
             addPolygons(data = tribal_bounds_bia %>%
-                            st_transform(crs = geographic_crs), # ces3_poly %>% filter(California_County == cities_counties[[input$city_selected_1]]),
+                            st_transform(crs = geographic_crs), 
                         options = pathOptions(pane = "tribal_boundaries_pane"),
                         color = 'darkgrey', 
                         weight = 0.5,
@@ -293,7 +293,7 @@ server <- function(input, output) {
                         opacity = 0.8,
                         fillOpacity = 0.8, 
                         fillColor = 'blueviolet', 
-                        highlightOptions = highlightOptions(color = "white", weight = 2), # fill = TRUE, fillColor = "white"),#,bringToFront = TRUE
+                        highlightOptions = highlightOptions(color = "white", weight = 2),
                         popup = ~paste0('<b>', '<u>','Tribal Area', '</u>','</b>','<br/>',
                                         '<b>', 'Name: ', '</b>',  larname, '<br/>'#,
                                         # '<b>', 'Agency: ', '</b>', agency, '<br/>',
@@ -347,7 +347,7 @@ server <- function(input, output) {
     # observeEvent(input$spot_map_render_groups,{
         if ('Land Cover (2019 NLCD)' %in% input$spot_map_render_groups){
             leafletProxy('spot_map_render') %>%
-                addLegend(position = 'bottomleft', # 'bottomright',
+                addLegend(position = 'bottomleft',
                           colors = nlcd_legend$Color,
                           labels = nlcd_legend$Class,
                           opacity = 1,
