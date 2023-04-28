@@ -37,43 +37,52 @@ st_write(spot_catchments,
 # SPoT Sites (2022) -------------------------------------------------------
 
 ## read SPoT Sites ----
-spot_sites_2022 <- read_excel(path = here('data_raw', 
-                                          'SPoT 2022 sites.xlsx'), 
-                              sheet = 'Site List',
-                              skip = 2) %>% 
+# spot_sites_2022 <- read_excel(path = here('data_raw', 
+#                                           'SPoT 2022 sites.xlsx'), 
+#                               sheet = 'Site List',
+#                               skip = 2) %>% 
+#     clean_names() %>% 
+#     rename(id = x1)
+# glimpse(spot_sites_2022)
+
+spot_sites <- read_excel(path = here('data_raw', 
+                                     'SPoT 2023_sites_XY_Final.xlsx'), 
+                         sheet = 'Site List',
+                         skip = 2, 
+                         na = c('', 'NA')) %>% 
     clean_names() %>% 
     rename(id = x1)
-glimpse(spot_sites_2022)
+glimpse(spot_sites)
 
 ## clean SPoT Sites ----
 ### make sure all longitudes are negative ----
-range(spot_sites_2022$target_long)
-sum(spot_sites_2022$target_long > 0)
-spot_sites_2022 <- spot_sites_2022 %>% 
+range(spot_sites$target_long)
+sum(spot_sites$target_long > 0)
+spot_sites <- spot_sites %>% 
     mutate(target_long = case_when(target_long > 0 ~ -1 * target_long,
                                    TRUE ~ target_long))
-range(spot_sites_2022$target_long)
-sum(spot_sites_2022$target_long > 0)
+range(spot_sites$target_long)
+sum(spot_sites$target_long > 0)
 
-### convert avg tox to numeric ----
-spot_sites_2022 <- spot_sites_2022 %>% 
+### convert avg tox to numeric (if needed) ----
+spot_sites <- spot_sites %>% 
     mutate(average_toxicity_2008_2022 = as.numeric(average_toxicity_2008_2022))
 
 ## convert SPoT Sites to sf ----
-spot_sites_2022_sf <- st_as_sf(spot_sites_2022, 
-                               coords = c('target_long', 'target_lat'),
-                               crs = 4269) %>% 
+spot_sites_sf <- st_as_sf(spot_sites, 
+                          coords = c('target_long', 'target_lat'),
+                          crs = 4269) %>% 
     st_transform(crs = 3310)
-st_crs(spot_sites_2022_sf)
+st_crs(spot_sites_sf)
 
 ### check SPoT Sites ----
 plot(spot_catchments$geometry)
-plot(spot_sites_2022_sf$geometry, add = TRUE, col = 'red')
+plot(spot_sites_sf$geometry, add = TRUE, col = 'red')
 
 ## write SPoT Sites ----
-st_write(spot_sites_2022_sf, 
+st_write(spot_sites_sf, 
          here('data_processed', 
-              'spot_sites_2022.gpkg'), 
+              'spot_sites.gpkg'), 
          append = FALSE)
 
 

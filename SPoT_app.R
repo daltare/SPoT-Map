@@ -45,7 +45,7 @@ spot_catchments <- st_read(here('data_processed',
 
 ## SPoT sites ----
 spot_sites <- st_read(here('data_processed', 
-                           'spot_sites_2022.gpkg')) %>% 
+                           'spot_sites.gpkg')) %>% 
     mutate(location_color = as.factor(location_color))
 
 ## CalEnviroScreen 4 ----
