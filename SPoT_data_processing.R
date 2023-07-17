@@ -64,6 +64,10 @@ spot_sites <- spot_sites %>%
 range(spot_sites$target_long)
 sum(spot_sites$target_long > 0)
 
+### fix inconsistent capitalization
+spot_sites <- spot_sites %>% 
+    mutate(possible_sample_loc = tolower(possible_sample_loc))
+
 ### convert avg tox to numeric (if needed) ----
 spot_sites <- spot_sites %>% 
     mutate(average_toxicity_2008_2022 = as.numeric(average_toxicity_2008_2022))

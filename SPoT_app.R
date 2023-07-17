@@ -76,16 +76,15 @@ nlcd_legend <- nlcd_colors() %>%
 wms_nlcd <- 'https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2019_Land_Cover_L48/wms?service=WMS&'
 
 
+
 # define UI ---------------------------------------------------------------
 ui <- fillPage(
-    # fillRow(
     leafletOutput('spot_map_render', height = "100%") %>% 
         # withSpinner(color="#0dc5c1") %>% # not working
         addSpinner(color = '#0dc5c1', 
                    spin = 'double-bounce' # 'fading-circle' 'rotating-plane'
         ) %>% 
         {.}
-    # )
 )
 
 
@@ -159,7 +158,7 @@ server <- function(input, output) {
         
         #### add legend for SPoT sites shapes / borders
         spot_map <- spot_map %>% 
-            addLegendSymbol(values = 'Possible SPoT Sample Location',
+            addLegendSymbol(values = 'CEC Sampling Sites',
                             shape = 'circle',
                             fillColor = 'white',
                             width = 20, 
